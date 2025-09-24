@@ -24,15 +24,24 @@ const UserContext = ({ children }) => {
   };
 
 
-  const getGeminiResponse=async(command)=>{
+  const getGeminiResponse = async (command) => {
     try {
-      const result=await axios.post(`${serverUrl}/api/user/asktoassistance`,{command},{withCredentials:true})
-      return result.data
+      const result = await axios.post(
+        `${serverUrl}/api/user/asktoassistance`,
+        { command },
+        { withCredentials: true }
+      );
       
+      if (!result.data || !result.data.type) {
+        throw new Error("Invalid response format from server");
+      }
+      
+      return result.data;
     } catch (error) {
-     console.log(error) 
+      console.error("Error in getGeminiResponse:", error);
+      // Rethrow the error so it can be handled by the component
+      throw error;
     }
-
   }
 
   useEffect(() => {

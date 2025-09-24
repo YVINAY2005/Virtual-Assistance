@@ -1,3 +1,4 @@
+
 import React, { useContext, useState } from 'react'
 import { userDataContext } from '../context/UserContext'
 import { useNavigate } from 'react-router-dom'
@@ -14,6 +15,7 @@ const Home = () => {
   const [listening, setListening] = useState(false)
   const [userText,setUserText]=useState("")
   const [aiText,setAiText]=useState("")
+  const [voiceEnabled, setVoiceEnabled] = useState(false)
   const isSpeakingRef=useRef(false)
   const recognitionRef=useRef(null)
   const isRecognizingRef=useRef(false)
@@ -33,11 +35,35 @@ const Home = () => {
   // Assistant-controlled navigation
   const assistantNavigate = (url) => {
     if (!assistantLinkRef.current) return false
-    assistantLinkRef.current.href = url
-    assistantLinkRef.current.target = '_blank'
-    assistantLinkRef.current.rel = 'noopener noreferrer'
-    assistantLinkRef.current.click()
-    return true
+    const newWindow = window.open(url, '_blank');
+    if (newWindow) {
+      newWindow.focus();
+      // Initialize voice recognition in new window
+      if (newWindow.document) {
+        try {
+          // Pass necessary data to new window
+          newWindow.userData = userData;
+          newWindow.assistantNavigate = assistantNavigate;
+          newWindow.handleCommand = handleCommand;
+          // Start recognition in new window
+          const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+          recognition.continuous = true;
+          recognition.lang = "en-US";
+          recognition.onstart = () => console.log("Recognition started in new tab");
+          recognition.start();
+        } catch (error) {
+          console.error("Error setting up voice in new tab:", error);
+        }
+      }
+      return true;
+    } else {
+      // Fallback if popup is blocked
+      assistantLinkRef.current.href = url;
+      assistantLinkRef.current.target = '_blank';
+      assistantLinkRef.current.rel = 'noopener noreferrer';
+      assistantLinkRef.current.click();
+      return true;
+    }
   }
 
 
@@ -66,22 +92,72 @@ const Home = () => {
     }
   }
 
-  const speak=(text)=>{
-    const utterance=new SpeechSynthesisUtterance(text)
-    utterance.lang="hi-IN"
-    const voices=window.speechSynthesis.getVoices()
-    const hindiVoice= voices.find(v=>v.lang==="hi-IN");
-    if(hindiVoice){
-      utterance.voice=hindiVoice;
+  const speak = async (text) => {
+    console.log('Speaking:', text);
+    if (!window.speechSynthesis) {
+      console.warn('Speech synthesis not available');
+      return;
     }
 
-    isSpeakingRef.current=true
-    utterance.onend=()=>{
-      setAiText("")
-      isSpeakingRef.current=false
-      startRecognition()
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    utterance.volume = 1;
+    utterance.rate = 1;
+    utterance.pitch = 1;
+
+    const voices = window.speechSynthesis.getVoices();
+    console.log('Available voices:', voices.length);
+
+    if (!voices.length) {
+      console.log('No voices loaded, retrying in 1 second');
+      setTimeout(() => speak(text), 1000);
+      return;
     }
-   synth.speak(utterance)
+
+    const englishVoice = voices.find(v => v.lang === "en-US") ||
+                        voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en')) ||
+                        voices.find(v => /english/i.test(v.name)) ||
+                        voices[0];
+
+    if (englishVoice) {
+      utterance.voice = englishVoice;
+      console.log("Selected voice:", englishVoice.name);
+    } else {
+      console.warn("No suitable voice found, using default");
+    }
+
+    utterance.onstart = () => {
+      console.log('Speech started');
+      isSpeakingRef.current = true;
+    };
+
+    utterance.onend = () => {
+      console.log('Speech ended');
+      setAiText("");
+      isSpeakingRef.current = false;
+      startRecognition();
+    };
+
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error:', event.error);
+      if (event.error === 'not-allowed') {
+        console.log('Speech synthesis requires user interaction. Please try again after clicking somewhere on the page.');
+      }
+      isSpeakingRef.current = false;
+      startRecognition();
+    };
+
+    try {
+      isSpeakingRef.current = true;
+      synth.speak(utterance);
+    } catch (error) {
+      console.error('Error during speech synthesis:', error);
+      isSpeakingRef.current = false;
+      startRecognition();
+    }
   }
 
   /**
@@ -104,6 +180,33 @@ const Home = () => {
         const q = encodeURIComponent(query || userInput)
         assistantNavigate(`https://www.google.com/search?q=${q}`)
         speak(`Searching Google for ${query || userInput}`)
+        break
+      }
+      case 'web_search': {
+        // Handle various web searches
+        const q = encodeURIComponent(query || userInput)
+        const searchType = data.searchType || 'google'
+        let url = 'https://www.google.com/search?q=' + q
+        
+        switch(searchType) {
+          case 'google':
+            url = `https://www.google.com/search?q=${q}`
+            break
+          case 'linkedin':
+            url = `https://www.linkedin.com/search/results/all/?keywords=${q}`
+            break
+          case 'instagram':
+            url = `https://www.instagram.com/explore/tags/${q}`
+            break
+          case 'facebook':
+            url = `https://www.facebook.com/search/top?q=${q}`
+            break
+          case 'twitter':
+            url = `https://twitter.com/search?q=${q}`
+            break
+        }
+        assistantNavigate(url)
+        speak(`Searching ${searchType} for ${query || userInput}`)
         break
       }
       case 'youtube_search': {
@@ -160,8 +263,15 @@ const Home = () => {
       }
       case 'define_word': {
         const w = encodeURIComponent(word || userInput)
-        assistantNavigate(`https://www.dictionary.com/browse/${w}`)
-        speak("Opening dictionary")
+        // Try multiple dictionary sources
+        const urls = [
+          `https://www.dictionary.com/browse/${w}`,
+          `https://www.google.com/search?q=define+${w}`,
+          `https://www.merriam-webster.com/dictionary/${w}`
+        ]
+        // Open the first dictionary source
+        assistantNavigate(urls[0])
+        speak(`Looking up definition for ${word || userInput}`)
         break
       }
       case 'spell_check': {
@@ -185,6 +295,13 @@ const Home = () => {
       case 'calculator': {
         assistantNavigate('https://www.google.com/search?q=calculator')
         speak("Opening calculator")
+        break
+      }
+      case 'math_calculation': {
+        const expression = data.expression || userInput
+        // Use Google's calculator for math expressions
+        assistantNavigate(`https://www.google.com/search?q=${encodeURIComponent(expression)}`)
+        speak(`Calculating ${expression}`)
         break
       }
       case 'calendar': {
@@ -247,10 +364,34 @@ const Home = () => {
           alert('Please open VSCode application manually.')
           break
         }
-  console.log("Opening URL:", url);
-  const openedApp = window.open(url, '_blank')
-  if (!openedApp) window.location.href = url
-  speak(`Opening ${app} in new tab`);
+        console.log("Opening URL:", url);
+        
+        // Open in new tab and keep track of opened windows
+        const newWindow = window.open(url, '_blank');
+        if (newWindow) {
+          newWindow.focus();
+          // Initialize voice recognition in the new window
+          if (newWindow.document) {
+            try {
+              // Pass necessary data to new window
+              newWindow.userData = userData;
+              newWindow.assistantNavigate = assistantNavigate;
+              newWindow.handleCommand = handleCommand;
+              // Start recognition in new window
+              const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+              recognition.continuous = true;
+              recognition.lang = "en-US";
+              recognition.onstart = () => console.log("Recognition started in new tab");
+              recognition.start();
+            } catch (error) {
+              console.error("Error setting up voice in new tab:", error);
+            }
+          }
+        } else {
+          // Fallback if popup is blocked
+          window.location.href = url;
+        }
+        speak(`Opening ${app} in new tab`);
         break
       }
       case 'set_alarm': {
@@ -277,13 +418,32 @@ const Home = () => {
         break
       }
       case 'time': {
-        speak('Opening current time')
-        window.open('https://www.google.com/search?q=current+time', '_blank')
-        break
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: true
+        });
+        const response = `The current time is ${timeString}`;
+        speak(response);
+        return {
+          type: 'time',
+          response: response
+        };
       }
       case 'date': {
-        speak('Opening current date')
-        window.open('https://www.google.com/search?q=current+date', '_blank')
+        const now = new Date()
+        const dateString = now.toLocaleDateString()
+        const month = now.toLocaleString('default', { month: 'long' })
+        const year = now.getFullYear()
+        speak(`Today's date is ${dateString}. It's ${month}, ${year}`)
+        break
+      }
+      case 'calendar_info': {
+        const now = new Date()
+        const month = now.toLocaleString('default', { month: 'long' })
+        const year = now.getFullYear()
+        speak(`We are currently in ${month}, ${year}`)
         break
       }
       default: {
@@ -426,17 +586,31 @@ const Home = () => {
       </div>
       <div className="absolute inset-0 bg-gradient-to-r from-blue-900/20 to-purple-900/20"></div>
       <div className="flex flex-col items-center justify-center min-h-screen px-4 py-20 relative z-10">
-        <h1 className="text-4xl md:text-6xl font-bold mb-6 drop-shadow-2xl bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent text-center">Welcome to Virtual Assistance</h1>
+        <h1 className="text-4xl md:text-6xl font-bold mb-6 drop-shadow-2xl bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent text-center">
+          Welcome to Virtual Assistance
+        </h1>
 
-        {userData?.assistanceImage && <img src={userData.assistanceImage} alt="Assistant" className="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover mb-4 mx-auto" />}
-        <h1 className="text-xl md:text-2xl mb-10 drop-shadow-lg text-gray-300 text-center">I'm {userData?.assistanceName}</h1>
-        {!aiText && <img src={userImg} alt="" />}
-        {aiText && <img src={aiImg} alt="" />}
-        <h1>{userText?userText:aiText?aiText:null}</h1>
-        
+        {userData?.assistanceImage && (
+          <img 
+            src={userData.assistanceImage} 
+            alt="Assistant" 
+            className="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover mb-4 mx-auto" 
+          />
+        )}
+        <h1 className="text-xl md:text-2xl mb-10 drop-shadow-lg text-gray-300 text-center">
+          I'm {userData?.assistanceName}
+        </h1>
+        {!aiText && <img src={userImg} alt="User" />}
+        {aiText && <img src={aiImg} alt="AI" />}
+        <h1>{userText || aiText || null}</h1>
+        {!voiceEnabled && (
+          <button onClick={() => { setVoiceEnabled(true); speak('Voice enabled'); }} className="mt-4 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300">
+            Enable Voice
+          </button>
+        )}
       </div>
     </div>
-  )
+  );
 }
 
 export default Home

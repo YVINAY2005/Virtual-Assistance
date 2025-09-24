@@ -42,17 +42,15 @@ export const askToAssistant=async(req,res)=>{
     user.save()
     const userName=user.assistanceName
     const assistanceName=user.name
-    const result=await geminiResponse(command,userName,assistanceName)
-    const jsonMatch=result.match(/{[\s\S]*}/)
-    if(!jsonMatch)
-    {
-      return res.status(400).json({message:"Sorry i cannot Understand the response"})
+    const result = await geminiResponse(command, userName, assistanceName);
+    if (!result || !result.type) {
+      return res.status(400).json({ message: "Invalid response format from assistant" });
     }
-    const gemResult=JSON.parse(jsonMatch[0])
+    return res.status(200).json(result);
 
-    console.log("Gemini result:", gemResult);
+    console.log("Gemini result:", result);
 
-    const type=gemResult.type;
+    const type=result.type;
 
     switch(type){
       case 'date':
@@ -85,6 +83,19 @@ export const askToAssistant=async(req,res)=>{
           command,
           response:`The current year is ${moment().format("YYYY")}`
         });
+        case 'math_calculation':
+          return res.json({
+            type,
+            command,
+            result: gemResult.result,  // Gemini should give you this
+          });
+        case 'define_word':
+          return res.json({
+            type,
+            command,
+            definition: gemResult.definition || "Here's the definition!"
+          });
+
       case 'google_search':
         return res.json({
           type,
