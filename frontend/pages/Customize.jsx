@@ -7,6 +7,7 @@ import vImage4 from '../src/assets/vImage4.jpg'
 import vImage5 from '../src/assets/vImage5.jpg'
 import vImage6 from '../src/assets/vImage6.jpeg'
 import { RiImageAddLine } from "react-icons/ri";
+import { MdKeyboardBackspace } from "react-icons/md";
 
 import Card from '../components/Card'
 import { userDataContext } from '../context/UserContext'
@@ -29,6 +30,9 @@ const Customize = () => {
 
   return (
     <div className="min-h-screen p-8 bg-gradient-to-br from-gray-900 via-black to-gray-800 relative overflow-hidden">
+            <MdKeyboardBackspace onClick={()=>navigate("/")} className="absolute top-4 left-4 text-white text-2xl cursor-pointer hover:text-gray-300 transition-colors z-10" />
+      
+
       <div className="absolute inset-0 bg-gradient-to-r from-purple-900/10 to-blue-900/10 animate-pulse"></div>
       <h1 className="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-purple-400 to-blue-600 bg-clip-text text-transparent drop-shadow-lg animate-bounce relative z-10">Select your Assistance Image</h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto relative z-10">

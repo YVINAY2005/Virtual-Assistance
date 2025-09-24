@@ -12,7 +12,12 @@ const userSchema=new mongoose.Schema({
     },
      password:{
         type:String,
-        required:true
+        required:function() {
+            return !this.googleId; // password required only if not OAuth
+        }
+    },
+     googleId:{
+        type:String,
     },
      assistanceName:{
         type:String,
