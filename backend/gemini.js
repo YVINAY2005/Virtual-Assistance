@@ -24,6 +24,7 @@ Available Types:
 - "google_search": For web searches. Include "query". Example: {"type": "google_search", "query": "latest news on AI"}
 - "youtube_search": For YouTube searches. Include "query". Example: {"type": "youtube_search", "query": "React.js tutorials"}
 - "open_application": For opening apps. Include "app". Example: {"type": "open_application", "app": "youtube"}
+- "web_search": For searches on specific websites. Include "searchType" (e.g., "linkedin", "instagram", "facebook", "twitter") and "query". Example: {"type": "web_search", "searchType": "linkedin", "query": "software engineer"}
 - "unknown": For unrecognized inputs. Include "response" with an apology. Example: {"type": "unknown", "response": "Sorry, I cannot understand the request type."}
 
 Instructions:

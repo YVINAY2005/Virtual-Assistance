@@ -87,67 +87,74 @@ export const askToAssistant=async(req,res)=>{
           return res.json({
             type,
             command,
-            result: gemResult.result,  // Gemini should give you this
+            result: result.result,  // Gemini should give you this
           });
         case 'define_word':
           return res.json({
             type,
             command,
-            definition: gemResult.definition || "Here's the definition!"
+            definition: result.definition || "Here's the definition!"
+          });
+        case 'web_search':
+          return res.json({
+            type,
+            searchType: result.searchType,
+            query: result.query,
+            response: `Searching ${result.searchType} for your query...`
           });
 
       case 'google_search':
         return res.json({
           type,
-          query: gemResult.query,
+          query: result.query,
           response: "Searching Google for your query..."
         });
       case 'youtube_search':
         return res.json({
           type,
-          query: gemResult.query,
+          query: result.query,
           response: "Searching YouTube for your query..."
         });
       case 'wikipedia_search':
         return res.json({
           type,
-          query: gemResult.query,
+          query: result.query,
           response: "Searching Wikipedia for your query..."
         });
       case 'news_search':
         return res.json({
           type,
-          query: gemResult.query,
+          query: result.query,
           response: "Searching for the latest news..."
         });
       case 'joke':
         return res.json({
           type,
-          joke: gemResult.joke || "Here's a joke for you!"
+          joke: result.joke || "Here's a joke for you!"
         });
       case 'quote':
         return res.json({
           type,
-          quote: gemResult.quote || "Here's an inspirational quote!"
+          quote: result.quote || "Here's an inspirational quote!"
         });
       case 'advice':
         return res.json({
           type,
-          advice: gemResult.advice || "Here's some advice!"
+          advice: result.advice || "Here's some advice!"
         });
       case 'weather':
         return res.json({
           type,
-          location: gemResult.location,
+          location: result.location,
           response: "Getting weather information..."
         });
       case 'open_application':
         // If the assistant was asked to open YouTube and also provided a search query,
         // treat it as a youtube_search so the frontend opens the YouTube search page.
-        if (gemResult.app && gemResult.app.toLowerCase() === 'youtube') {
+        if (result.app && result.app.toLowerCase() === 'youtube') {
           // prefer explicit gemini query
-          if (gemResult.query) {
-            return res.json({ type: 'youtube_search', query: gemResult.query });
+          if (result.query) {
+            return res.json({ type: 'youtube_search', query: result.query });
           }
 
           // fallback: try to extract a search phrase from the raw voice command text
@@ -166,14 +173,14 @@ export const askToAssistant=async(req,res)=>{
 
         return res.json({
           type: 'open_application',
-          app: gemResult.app,
-          query: gemResult.query || null,
-          response: `Opening ${gemResult.app || 'application'}...`
+          app: result.app,
+          query: result.query || null,
+          response: `Opening ${result.app || 'application'}...`
         });
       case 'unknown':
         return res.json({
           type: "unknown",
-          response: gemResult.response || "Sorry, I cannot understand the request type."
+          response: result.response || "Sorry, I cannot understand the request type."
         });
       default:
         return res.json({

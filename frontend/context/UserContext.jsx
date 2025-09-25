@@ -10,6 +10,17 @@ const UserContext = ({ children }) => {
   const [FrontendImage,setFrontendImage]=useState(null)
   const [BackendImage,setBackendImage]=useState(null)
   const[selectedImage,setSelectedImage]=useState(null)
+  const [selectedVoice, setSelectedVoice] = useState(null);
+  const [voices, setVoices] = useState([]);
+
+  const setSelectedVoiceWithStorage = (voice) => {
+    setSelectedVoice(voice);
+    if (voice) {
+      localStorage.setItem('selectedVoiceName', voice.name);
+    } else {
+      localStorage.removeItem('selectedVoiceName');
+    }
+  };
 
   const handleCurrentUser = async () => {
     try {
@@ -31,11 +42,11 @@ const UserContext = ({ children }) => {
         { command },
         { withCredentials: true }
       );
-      
+
       if (!result.data || !result.data.type) {
         throw new Error("Invalid response format from server");
       }
-      
+
       return result.data;
     } catch (error) {
       console.error("Error in getGeminiResponse:", error);
@@ -46,9 +57,23 @@ const UserContext = ({ children }) => {
 
   useEffect(() => {
     handleCurrentUser();
+    // Load voices and selectedVoice
+    const loadVoices = () => {
+      const availableVoices = window.speechSynthesis.getVoices();
+      setVoices(availableVoices);
+      const savedVoiceName = localStorage.getItem('selectedVoiceName');
+      if (savedVoiceName) {
+        const voice = availableVoices.find(v => v.name === savedVoiceName);
+        if (voice) {
+          setSelectedVoice(voice);
+        }
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
   }, []);
 
-  const value = { serverUrl, userData, setUserData ,FrontendImage,setFrontendImage,BackendImage,setBackendImage,selectedImage,setSelectedImage,getGeminiResponse};
+  const value = { serverUrl, userData, setUserData ,FrontendImage,setFrontendImage,BackendImage,setBackendImage,selectedImage,setSelectedImage,getGeminiResponse, selectedVoice, setSelectedVoice: setSelectedVoiceWithStorage};
 
   return (
     <userDataContext.Provider value={value}>

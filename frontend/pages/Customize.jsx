@@ -1,4 +1,4 @@
-import React, { useContext, useRef, useState } from 'react'
+import React, { useContext, useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import vImage1 from '../src/assets/vImage1.jpg'
 import vImage2 from '../src/assets/vImage2.jpg'
@@ -14,11 +14,24 @@ import { userDataContext } from '../context/UserContext'
 
 
 const Customize = () => {
-  const { serverUrl, userData, setUserData ,FrontendImage,setFrontendImage,BackendImage,setBackendImage,selectedImage,setSelectedImage}=useContext(userDataContext)
-  
+  const { serverUrl, userData, setUserData ,FrontendImage,setFrontendImage,BackendImage,setBackendImage,selectedImage,setSelectedImage, selectedVoice, setSelectedVoice}=useContext(userDataContext)
+
   const inputImage=useRef()
   const navigate=useNavigate()
+  const [voices, setVoices] = useState([]);
 
+  useEffect(() => {
+    const loadVoices = () => {
+      const availableVoices = window.speechSynthesis.getVoices();
+      setVoices(availableVoices);
+      if (availableVoices.length > 0 && !selectedVoice) {
+        setSelectedVoice(availableVoices[0]);
+      }
+    };
+
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, [selectedVoice, setSelectedVoice]);
 
   const handleImage=(e)=>{
     const file=e.target.files[0]
@@ -50,6 +63,23 @@ const Customize = () => {
       </div>
     <input type="file" accept='image/*' hidden ref={inputImage} onChange={handleImage} />
 
+      </div>
+      <div className="mt-8 max-w-md mx-auto relative z-10">
+        <h2 className="text-2xl font-bold mb-4 text-center text-white">Select Voice</h2>
+        <select
+          value={selectedVoice ? selectedVoice.name : ''}
+          onChange={(e) => {
+            const voice = voices.find(v => v.name === e.target.value);
+            setSelectedVoice(voice);
+          }}
+          className="w-full p-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 hover:bg-white/30 transition-all duration-300 backdrop-blur-sm"
+        >
+          {voices.map((voice, index) => (
+            <option key={index} value={voice.name} className="text-black">
+              {voice.name} ({voice.lang})
+            </option>
+          ))}
+        </select>
       </div>
       {selectedImage && <button className="mt-8 px-8 py-4 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-2xl hover:from-green-600 hover:to-blue-700 hover:scale-110 hover:shadow-2xl transition-all duration-300 block mx-auto animate-pulse"  onClick={() => navigate("/customize2")}>next</button>}
 
