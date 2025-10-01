@@ -3,7 +3,7 @@ import axios from "axios"; // ✅ you’re using axios but didn’t import it
 
 export const userDataContext = createContext();
 
-const serverUrl = "http://localhost:8000";
+const serverUrl = "https://virtual-assistance-backend-g8zk.onrender.com";
 
 const UserContext = ({ children }) => {
   const [userData, setUserData] = useState(null);
