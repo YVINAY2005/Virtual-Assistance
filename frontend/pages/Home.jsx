@@ -15,16 +15,21 @@ const Home = () => {
   const [listening, setListening] = useState(false)
   const [userText,setUserText]=useState("")
   const [aiText,setAiText]=useState("")
-  const [voiceEnabled, setVoiceEnabled] = useState(false)
+  const [voiceEnabled, setVoiceEnabled] = useState(() => {
+    // Check if voice was previously enabled
+    return localStorage.getItem('voiceEnabled') === 'false';
+  })
+  const [isFirstVisit, setIsFirstVisit] = useState(true)
+  const [hasSpokenGreeting, setHasSpokenGreeting] = useState(false)
   const [history, setHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
+  const [showShutdownModal, setShowShutdownModal] = useState(false)
   const isSpeakingRef=useRef(false)
   const recognitionRef=useRef(null)
   const isRecognizingRef=useRef(false)
   const synth=window.speechSynthesis
   // Create a link element for programmatic navigation
   const assistantLinkRef = useRef(null)
-  
   useEffect(() => {
     // Create a hidden link element for assistant-controlled navigation
     const link = document.createElement('a')
@@ -39,11 +44,50 @@ const Home = () => {
     if (savedHistory) {
       setHistory(JSON.parse(savedHistory));
     }
-  }, [])
+
+    // Check if it's the first visit
+    const hasVisited = localStorage.getItem('hasVisitedHome');
+    if (!hasVisited && userData?.name) {
+      const greeting = `Hey ${userData.name}, how can I help you today?`;
+      setAiText(greeting);
+      setIsFirstVisit(true);
+      localStorage.setItem('hasVisitedHome', 'true');
+
+      // Don't speak automatically on page load - wait for user interaction
+    } else {
+      setIsFirstVisit(false);
+    }
+  }, [userData])
 
   useEffect(() => {
     localStorage.setItem('chatHistory', JSON.stringify(history));
   }, [history])
+
+  // Speak greeting when voice is enabled and user interacts with page
+  useEffect(() => {
+    if (voiceEnabled && userData?.name && !hasSpokenGreeting) {
+      const handleUserInteraction = () => {
+        const greeting = `Hey ${userData.name}, how can I help you today?`;
+        speak(greeting);
+       setHasSpokenGreeting(true);
+        // Remove the event listeners after speaking
+        document.removeEventListener('click', handleUserInteraction);
+        document.removeEventListener('keydown', handleUserInteraction);
+      };
+
+      // Add event listeners for user interaction
+      document.addEventListener('click', handleUserInteraction);
+      document.addEventListener('keydown', handleUserInteraction);
+
+      // Cleanup function
+      return () => {
+        document.removeEventListener('click', handleUserInteraction);
+        document.removeEventListener('keydown', handleUserInteraction);
+      };
+    }
+  }, [voiceEnabled, userData, hasSpokenGreeting])
+
+
 
   // Assistant-controlled navigation
   const assistantNavigate = (url) => {
@@ -112,18 +156,32 @@ const Home = () => {
       return;
     }
 
+    // Validate input text
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      console.warn('Invalid text provided for speech synthesis');
+      return;
+    }
+
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(text.trim());
     utterance.lang = "en-US";
     utterance.volume = 1;
     utterance.rate = 1;
     utterance.pitch = 1;
 
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-      console.log("Selected voice:", selectedVoice.name);
+    // Validate and set voice
+    if (selectedVoice && selectedVoice.name) {
+      // Check if the voice is available in the current voices list
+      const availableVoices = window.speechSynthesis.getVoices();
+      const voiceExists = availableVoices.some(voice => voice.name === selectedVoice.name && voice.lang === selectedVoice.lang);
+      if (voiceExists) {
+        utterance.voice = selectedVoice;
+        console.log("Selected voice:", selectedVoice.name);
+      } else {
+        console.warn("Selected voice not available, using default");
+      }
     } else {
       console.warn("No voice selected, using default");
     }
@@ -141,9 +199,30 @@ const Home = () => {
     };
 
     utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event.error);
-      if (event.error === 'not-allowed') {
-        console.log('Speech synthesis requires user interaction. Please try again after clicking somewhere on the page.');
+      console.error('Speech synthesis error:', event.error, 'for text:', text);
+      switch (event.error) {
+        case 'not-allowed':
+          console.log('Speech synthesis requires user interaction. Please try again after clicking somewhere on the page.');
+          break;
+        case 'synthesis-failed':
+          console.log('Speech synthesis failed. This may be due to invalid voice selection or unsupported text. Retrying with default voice.');
+          // Retry with default voice
+          utterance.voice = null;
+          try {
+            window.speechSynthesis.speak(utterance);
+            return; // Exit to avoid resetting flags
+          } catch (retryError) {
+            console.error('Retry also failed:', retryError);
+          }
+          break;
+        case 'network':
+          console.log('Network error during speech synthesis.');
+          break;
+        case 'interrupted':
+          console.log('Speech synthesis was interrupted.');
+          break;
+        default:
+          console.log('Unknown speech synthesis error:', event.error);
       }
       isSpeakingRef.current = false;
       startRecognition();
@@ -254,10 +333,9 @@ const Home = () => {
         break
       }
       case 'translate_text': {
-        const txt = encodeURIComponent(text || userInput)
-        const lang = to || 'en'
-        assistantNavigate(`https://translate.google.com/?sl=auto&tl=${lang}&text=${txt}`)
-        speak("Opening translation")
+        const translation = data.translation || `Translation of "${text || userInput}" to ${to || 'English'}`;
+        speak(translation);
+        data.response = translation; // to display the text
         break
       }
       case 'define_word': {
@@ -467,6 +545,21 @@ const Home = () => {
         speak(`We are currently in ${month}, ${year}`)
         break
       }
+       case 'return': {
+        navigate("/") // ✅ Return to homepage
+        speak("Returning to the home page")
+        break
+      }
+      case 'shutdown_confirm': {
+        setShowShutdownModal(true);
+        setAiText(response);
+        break
+      }
+      case 'shutdown': {
+        speak("Shutting down your computer")
+        // ✅ Backend will handle actual shutdown
+        break
+      }
       default: {
         console.log(`Unhandled command type: ${type}`)
         speak("This feature is not available in the web version.")
@@ -479,7 +572,7 @@ const Home = () => {
     const SpeechRecognition=window.SpeechRecognition || window.webkitSpeechRecognition
     const recognition=new SpeechRecognition()
     recognition.continuous=true,
-    recognition.lang="en-US"
+     recognition.lang = navigator.language || "en-US" // ✅ Multi-language
 
     recognitionRef.current=recognition
 
@@ -551,7 +644,7 @@ const Home = () => {
         const data=await getGeminiResponse(transcript)
         console.log("Received data from Gemini:", data);
     const speakableTypes = ['general', 'joke', 'quote', 'advice', 'time', 'date', 'math_calculation', 'unknown'];
-    const commandTypes = ['google_search', 'youtube_search', 'wikipedia_search', 'github_search', 'stackoverflow_search', 'news_search', 'get_directions', 'find_nearby_places', 'translate_text', 'define_word', 'spell_check', 'grammar_check', 'weather', 'calculator', 'calendar', 'instagram', 'facebook', 'whatsapp', 'play_music', 'linkedin', 'twitter', 'vscode', 'open_application', 'set_alarm', 'set_reminder', 'logout', 'time', 'date'];
+    const commandTypes = ['google_search', 'youtube_search', 'wikipedia_search', 'github_search', 'stackoverflow_search', 'news_search', 'get_directions', 'find_nearby_places', 'translate_text', 'define_word', 'spell_check', 'grammar_check', 'weather', 'calculator', 'calendar', 'instagram', 'facebook', 'whatsapp', 'play_music', 'linkedin', 'twitter', 'vscode', 'open_application', 'set_alarm', 'set_reminder', 'logout', 'time', 'date', 'shutdown_confirm'];
     let responseText = "";
     if(commandTypes.includes(data.type)){
       // Remove 'response' field if present for command types
@@ -658,12 +751,58 @@ const Home = () => {
           />
         )}
         <h1 className="text-white">{userText || aiText || null}</h1>
-        {!voiceEnabled && (
-          <button onClick={() => { setVoiceEnabled(true); speak('Voice enabled'); }} className="mt-4 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300">
-            Enable Voice
-          </button>
-        )}
+        <button 
+          onClick={() => {
+            const newVoiceEnabled = !voiceEnabled;
+            setVoiceEnabled(newVoiceEnabled);
+            localStorage.setItem('voiceEnabled', newVoiceEnabled.toString());
+            if (newVoiceEnabled) {
+              const greeting = `Hey ${userData?.name}, how can I help you today?`;
+              speak(greeting);
+              setHasSpokenGreeting(true);
+            } else {
+              setHasSpokenGreeting(false);
+              window.speechSynthesis.cancel();
+            }
+          }} 
+          className="mt-4 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300"
+        >
+          {voiceEnabled ? 'Disable Voice' : 'Enable Voice'}
+        </button>
       </div>
+
+      {/* Shutdown Confirmation Modal */}
+      {showShutdownModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Confirm Shutdown</h2>
+            <p className="text-gray-600 mb-6">Are you sure you want to shut down your computer?</p>
+            <div className="flex space-x-4">
+              <button
+                onClick={async () => {
+                  setShowShutdownModal(false);
+                  try {
+                    await axios.post(`${serverUrl}/api/user/shutdown-confirm`, {}, { withCredentials: true });
+                    speak("Shutting down your computer");
+                  } catch (error) {
+                    console.error("Shutdown error:", error);
+                    speak("Failed to shut down the computer");
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setShowShutdownModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

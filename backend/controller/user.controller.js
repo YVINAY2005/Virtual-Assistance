@@ -2,6 +2,7 @@ import geminiResponse from "../gemini.js";
 import User from "../models/user.model.js";
 import moment from "moment/moment.js";
 import uploadOnCloudinary from "../config/cloudinary.js";
+import { exec } from "child_process"; // Added for shutdown
 
 export const getCurrentUser = async (req, res) => {
   try {
@@ -16,181 +17,179 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
-export const UpdateAssistant=async(req,res)=>{
+export const UpdateAssistant = async (req, res) => {
   try {
-    const {assistanceName,imageUrl}=req.body
+    const { assistanceName, imageUrl } = req.body;
     let assistanceImage;
-    if(req.file){
-      assistanceImage=await uploadOnCloudinary(req.file.path)
+    if (req.file) {
+      assistanceImage = await uploadOnCloudinary(req.file.path);
+    } else {
+      assistanceImage = imageUrl;
     }
-    else{
-      assistanceImage=imageUrl
-    }
-    const user=await User.findByIdAndUpdate(req.userId,{assistanceName,assistanceImage},{new:true}).select("-password")
-    res.status(200).json(user)
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { assistanceName, assistanceImage },
+      { new: true }
+    ).select("-password");
+    res.status(200).json(user);
   } catch (error) {
     return res.status(500).json({ message: "Server error" });
-
   }
-}
+};
 
-export const askToAssistant=async(req,res)=>{
+export const askToAssistant = async (req, res) => {
   try {
-    const{command}=req.body
-    const user=await User.findById(req.userId);
-    user.history.push(command)
-    user.save()
-    const userName=user.assistanceName
-    const assistanceName=user.name
-    const result = await geminiResponse(command, userName, assistanceName);
+    const { command } = req.body;
+    const user = await User.findById(req.userId);
+    user.history.push(command);
+    user.save();
+    const assistanceName = user.assistanceName;
+    const userName = user.name;
+    const result = await geminiResponse(command, assistanceName, userName);
     if (!result || !result.type) {
       return res.status(400).json({ message: "Invalid response format from assistant" });
     }
-    return res.status(200).json(result);
 
-    console.log("Gemini result:", result);
+    const type = result.type;
 
-    const type=result.type;
-
-    switch(type){
-      case 'date':
+    switch (type) {
+      case "date":
         return res.json({
           type,
           command,
-          response:`The current date is ${moment().format("MMMM Do YYYY")}`
+          response: `The current date is ${moment().format("MMMM Do YYYY")}`,
         });
-      case 'time':
+      case "time":
         return res.json({
           type,
           command,
-          response:`The current time is ${moment().format("hh:mm A")}`
+          response: `The current time is ${moment().format("hh:mm A")}`,
         });
-      case 'day':
+      case "day":
         return res.json({
           type,
           command,
-          response:`Today is ${moment().format("dddd")}`
+          response: `Today is ${moment().format("dddd")}`,
         });
-      case 'month':
+      case "month":
         return res.json({
           type,
           command,
-          response:`The current month is ${moment().format("MMMM")}`
+          response: `The current month is ${moment().format("MMMM")}`,
         });
-      case 'year':
+      case "year":
         return res.json({
           type,
           command,
-          response:`The current year is ${moment().format("YYYY")}`
+          response: `The current year is ${moment().format("YYYY")}`,
         });
-        case 'math_calculation':
-          return res.json({
-            type,
-            command,
-            result: result.result,  // Gemini should give you this
-          });
-        case 'define_word':
-          return res.json({
-            type,
-            command,
-            definition: result.definition || "Here's the definition!"
-          });
-        case 'web_search':
-          return res.json({
-            type,
-            searchType: result.searchType,
-            query: result.query,
-            response: `Searching ${result.searchType} for your query...`
-          });
-
-      case 'google_search':
+      case "math_calculation":
+        return res.json({
+          type,
+          command,
+          result: result.result,
+        });
+      case "define_word":
+        return res.json({
+          type,
+          command,
+          definition: result.definition || "Here's the definition!",
+        });
+      case "web_search":
+        return res.json({
+          type,
+          searchType: result.searchType,
+          query: result.query,
+          response: `Searching ${result.searchType} for your query...`,
+        });
+      case "google_search":
         return res.json({
           type,
           query: result.query,
-          response: "Searching Google for your query..."
+          response: "Searching Google for your query...",
         });
-      case 'youtube_search':
+      case "youtube_search":
         return res.json({
           type,
           query: result.query,
-          response: "Searching YouTube for your query..."
+          response: "Searching YouTube for your query...",
         });
-      case 'wikipedia_search':
+      case "wikipedia_search":
         return res.json({
           type,
           query: result.query,
-          response: "Searching Wikipedia for your query..."
+          response: "Searching Wikipedia for your query...",
         });
-      case 'news_search':
+      case "news_search":
         return res.json({
           type,
           query: result.query,
-          response: "Searching for the latest news..."
+          response: "Searching for the latest news...",
         });
-      case 'joke':
+      case "joke":
         return res.json({
           type,
-          joke: result.joke || "Here's a joke for you!"
+          joke: result.joke || "Here's a joke for you!",
         });
-      case 'quote':
+      case "quote":
         return res.json({
           type,
-          quote: result.quote || "Here's an inspirational quote!"
+          quote: result.quote || "Here's an inspirational quote!",
         });
-      case 'advice':
+      case "advice":
         return res.json({
           type,
-          advice: result.advice || "Here's some advice!"
+          advice: result.advice || "Here's some advice!",
         });
-      case 'weather':
+      case "weather":
         return res.json({
           type,
           location: result.location,
-          response: "Getting weather information..."
+          response: "Getting weather information...",
         });
-      case 'open_application':
-        // If the assistant was asked to open YouTube and also provided a search query,
-        // treat it as a youtube_search so the frontend opens the YouTube search page.
-        if (result.app && result.app.toLowerCase() === 'youtube') {
-          // prefer explicit gemini query
-          if (result.query) {
-            return res.json({ type: 'youtube_search', query: result.query });
-          }
-
-          // fallback: try to extract a search phrase from the raw voice command text
-          try {
-            const re = /youtube(?:\s*(?:and\s*)?(?:search(?:\s+for)?|play)?\s*)?(.*)$/i;
-            const m = command.match(re);
-            if (m && m[1] && m[1].trim()) {
-              let q = m[1].trim();
-              q = q.replace(/^(for|to)\s+/i, '').replace(/\bplease\b/i, '').trim();
-              if (q) return res.json({ type: 'youtube_search', query: q });
-            }
-          } catch (err) {
-            console.error('YouTube query extraction error:', err.message);
-          }
-        }
-
+      case "open_application":
         return res.json({
-          type: 'open_application',
+          type: "open_application",
           app: result.app,
           query: result.query || null,
-          response: `Opening ${result.app || 'application'}...`
+          response: `Opening ${result.app || "application"}...`,
         });
-      case 'unknown':
+      case "shutdown": // Shutdown confirmation request
         return res.json({
-          type: "unknown",
-          response: result.response || "Sorry, I cannot understand the request type."
+          type: "shutdown_confirm",
+          response: "Are you sure you want to shut down your computer?",
         });
+      case "return": // New return support
+        return res.json({
+          type: "return",
+          response: "Returning to the home page...",
+        });
+      case "unknown":
       default:
         return res.json({
           type: "unknown",
-          response: "Sorry, I cannot understand the request type."
+          response: result.response || "Sorry, I cannot understand the request type.",
         });
-
     }
-
   } catch (error) {
-    return res.status(500).json({response:"Sorry i cannot process your request at the moment"})
+    return res.status(500).json({ response: "Sorry I cannot process your request at the moment" });
   }
-}
+};
+
+export const confirmShutdown = async (req, res) => {
+  try {
+    // Execute shutdown command
+    exec("shutdown /s /t 0", (err) => {
+      if (err) {
+        console.error("Shutdown failed:", err);
+        return res.status(500).json({ message: "Failed to shutdown" });
+      }
+    });
+    return res.json({
+      type: "shutdown",
+      response: "Shutting down your computer...",
+    });
+  } catch (error) {
+    return res.status(500).json({ response: "Sorry I cannot process your request at the moment" });
+  }
+};
