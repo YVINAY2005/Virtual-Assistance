@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useEffect } from 'react'
 import { useRef } from 'react'
-import aiImg from "../src/assets/voice.gif";
+import aiImg from "../src/assets/Voice.gif";
 import userImg from "../src/assets/GOOD GIF.gif";
 
 const Home = () => {
