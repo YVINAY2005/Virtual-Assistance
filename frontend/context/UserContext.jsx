@@ -1,9 +1,8 @@
 import React, { createContext, useState, useEffect } from "react";
-import axios from "axios"; // ✅ you’re using axios but didn’t import it
-
+import axios from "axios";
 export const userDataContext = createContext();
 
-const serverUrl = "http://localhost:8000";
+const serverUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 const UserContext = ({ children }) => {
   const [userData, setUserData] = useState(null);
