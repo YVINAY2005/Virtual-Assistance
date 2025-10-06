@@ -23,8 +23,11 @@ const UserContext = ({ children }) => {
 
   const handleCurrentUser = async () => {
     try {
+      const token = localStorage.getItem('token');
       const result = await axios.get(`${serverUrl}/api/user/current`, {
-        withCredentials: true,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
       setUserData(result.data);
       console.log(result.data);
@@ -36,10 +39,15 @@ const UserContext = ({ children }) => {
 
   const getGeminiResponse = async (command) => {
     try {
+      const token = localStorage.getItem('token');
       const result = await axios.post(
         `${serverUrl}/api/user/asktoassistance`,
         { command },
-        { withCredentials: true }
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
       if (!result.data || !result.data.type) {
