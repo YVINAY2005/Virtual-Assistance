@@ -24,6 +24,7 @@ function SignIn  () {
 );
 
         setUserData(result.data);
+        localStorage.setItem('token', result.data.token);
         setLoader(false)
          navigate("/")
         

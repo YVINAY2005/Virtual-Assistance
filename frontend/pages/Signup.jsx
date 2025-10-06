@@ -26,6 +26,7 @@ function Signup  () {
 );
 
         setUserData(result.data);
+        localStorage.setItem('token', result.data.token);
         setLoader(false)
         // Redirect to customize page only if first time signup
         if (result.data && result.data.isFirstTimeUser) {
