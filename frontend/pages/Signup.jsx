@@ -27,9 +27,12 @@ function Signup  () {
 
         setUserData(result.data);
         setLoader(false)
-        navigate("/customize")
-        
-        
+        // Redirect to customize page only if first time signup
+        if (result.data && result.data.isFirstTimeUser) {
+          navigate("/customize")
+        } else {
+          navigate("/")
+        }
       } catch (error) {
         setUserData(null)
         toast.error(error.message)

@@ -22,6 +22,8 @@ export const signUp = async (req, res) => {
       name,
       password: hashedPassword,
       email,
+      assistanceName: "Assistant",
+      assistanceImage: "https://example.com/default-assistant-image.png",
     });
 
     const Token = await genToken(user._id);
@@ -34,7 +36,8 @@ export const signUp = async (req, res) => {
       secure: false,     // ✅ set true only when using https
     });
 
-    return res.status(201).json(user);
+    // Add a flag to indicate first time user for frontend redirect
+    return res.status(201).json({ ...user.toObject(), isFirstTimeUser: true });
   } catch (error) {
     return res.status(500).json({ message: `sign up error ${error}` });
   }

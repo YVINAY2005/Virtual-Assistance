@@ -91,7 +91,7 @@ const Home = () => {
 
   // Assistant-controlled navigation
   const assistantNavigate = (url) => {
-    if (!assistantLinkRef.current) return false
+    if (!assistantLinkRef.current) return null
     const newWindow = window.open(url, '_blank');
     if (newWindow) {
       newWindow.focus();
@@ -112,14 +112,14 @@ const Home = () => {
           console.error("Error setting up voice in new tab:", error);
         }
       }
-      return true;
+      return newWindow;
     } else {
       // Fallback if popup is blocked
       assistantLinkRef.current.href = url;
       assistantLinkRef.current.target = '_blank';
       assistantLinkRef.current.rel = 'noopener noreferrer';
       assistantLinkRef.current.click();
-      return true;
+      return null;
     }
   }
 
@@ -265,13 +265,13 @@ const Home = () => {
         const q = encodeURIComponent(query || userInput)
         const searchType = data.searchType || 'google'
         let url = 'https://www.google.com/search?q=' + q
-        
+
         switch(searchType) {
           case 'google':
             url = `https://www.google.com/search?q=${q}`
             break
           case 'linkedin':
-            url = `https://www.linkedin.com/search/results/all/?keywords=${q}`
+            url = `https://www.linkedin.com/search/results/people/?keywords=${q}`
             break
           case 'instagram':
             url = `https://www.instagram.com/explore/tags/${q}`
@@ -283,8 +283,16 @@ const Home = () => {
             url = `https://twitter.com/search?q=${q}`
             break
         }
-        assistantNavigate(url)
-        speak(`Searching ${searchType} for ${query || userInput}`)
+        const newWindow = assistantNavigate(url)
+        if (searchType === 'linkedin' && newWindow) {
+          window.linkedInWindow = newWindow;
+        }
+        // Speak with custom message for LinkedIn search
+        if (searchType === 'linkedin') {
+          speak(`Searching LinkedIn for ${query || userInput}`)
+        } else {
+          speak(`Searching ${searchType} for ${query || userInput}`)
+        }
         break
       }
       case 'youtube_search': {
@@ -410,7 +418,7 @@ const Home = () => {
         if (window.linkedInWindow && !window.linkedInWindow.closed) {
           const searchQuery = data.query || userInput || '';
           const encodedQuery = encodeURIComponent(searchQuery);
-          const searchUrl = `https://www.linkedin.com/search/results/all/?keywords=${encodedQuery}`;
+          const searchUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodedQuery}`;
           window.linkedInWindow.location.href = searchUrl;
           window.linkedInWindow.focus();
           speak(`Searching LinkedIn for ${searchQuery}`);
@@ -418,12 +426,8 @@ const Home = () => {
           // If LinkedIn not open, open it with search query
           const searchQuery = data.query || userInput || '';
           const encodedQuery = encodeURIComponent(searchQuery);
-          const searchUrl = `https://www.linkedin.com/search/results/all/?keywords=${encodedQuery}`;
-          const newWindow = window.open(searchUrl, '_blank');
-          if (newWindow) {
-            newWindow.focus();
-            window.linkedInWindow = newWindow;
-          }
+          const searchUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodedQuery}`;
+          assistantNavigate(searchUrl);
           speak(`Opening LinkedIn and searching for ${searchQuery}`);
         }
         break
@@ -644,7 +648,7 @@ const Home = () => {
         const data=await getGeminiResponse(transcript)
         console.log("Received data from Gemini:", data);
     const speakableTypes = ['general', 'joke', 'quote', 'advice', 'time', 'date', 'math_calculation', 'unknown'];
-    const commandTypes = ['google_search', 'youtube_search', 'wikipedia_search', 'github_search', 'stackoverflow_search', 'news_search', 'get_directions', 'find_nearby_places', 'translate_text', 'define_word', 'spell_check', 'grammar_check', 'weather', 'calculator', 'calendar', 'instagram', 'facebook', 'whatsapp', 'play_music', 'linkedin', 'twitter', 'vscode', 'open_application', 'set_alarm', 'set_reminder', 'logout', 'time', 'date', 'shutdown_confirm'];
+    const commandTypes = ['google_search', 'web_search', 'youtube_search', 'wikipedia_search', 'github_search', 'stackoverflow_search', 'news_search', 'get_directions', 'find_nearby_places', 'translate_text', 'define_word', 'spell_check', 'grammar_check', 'weather', 'calculator', 'calendar', 'instagram', 'facebook', 'whatsapp', 'play_music', 'linkedin', 'twitter', 'vscode', 'open_application', 'set_alarm', 'set_reminder', 'logout', 'time', 'date', 'shutdown_confirm'];
     let responseText = "";
     if(commandTypes.includes(data.type)){
       // Remove 'response' field if present for command types
