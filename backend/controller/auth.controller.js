@@ -37,7 +37,7 @@ export const signUp = async (req, res) => {
     });
 
     // Add a flag to indicate first time user for frontend redirect
-    return res.status(201).json({ ...user.toObject(), isFirstTimeUser: true });
+    return res.status(201).json({ ...user.toObject(), token: Token, isFirstTimeUser: true });
   } catch (error) {
     return res.status(500).json({ message: `sign up error ${error}` });
   }
@@ -69,7 +69,7 @@ export const login = async (req, res) => {
       secure: false,     // ✅
     });
 
-    return res.status(200).json(user);
+    return res.status(200).json({ ...user.toObject(), token: Token });
   } catch (error) {
     return res.status(500).json({ message: `login error ${error}` });
   }
