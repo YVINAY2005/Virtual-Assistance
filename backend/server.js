@@ -13,7 +13,7 @@ dotenv.config();
 const app= express();
 
 app.use(cors({
-    origin: [process.env.VITE_FRONTEND_URL || "http://localhost:5173", "http://localhost:5173"],
+    origin: [process.env.VITE_FRONTEND_URL || "http://localhost:5173", "http://localhost:5173", "https://virtual-assistance-frontend.onrender.com"],
     credentials: true
 }))
 
