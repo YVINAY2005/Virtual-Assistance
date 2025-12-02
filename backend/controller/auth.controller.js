@@ -29,11 +29,12 @@ export const signUp = async (req, res) => {
     const Token = await genToken(user._id);
     console.log("Signup Token:", Token);
 
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie("token", Token, {
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      sameSite: "lax",   // ✅ allow cookies in cross-origin localhost
-      secure: false,     // ✅ set true only when using https
+      sameSite: isProduction ? "none" : "lax",
+      secure: isProduction, // true on production (HTTPS), false on localhost (HTTP)
     });
 
     // Add a flag to indicate first time user for frontend redirect
@@ -62,11 +63,12 @@ export const login = async (req, res) => {
     const Token = await genToken(user._id);
     console.log("Login Token:", Token);
 
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie("token", Token, {
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      sameSite: "lax",   // ✅
-      secure: false,     // ✅
+      sameSite: isProduction ? "none" : "lax",
+      secure: isProduction, // true on production (HTTPS), false on localhost (HTTP)
     });
 
     return res.status(200).json({ ...user.toObject(), token: Token });

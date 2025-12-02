@@ -25,6 +25,7 @@ function Signup  () {
   { withCredentials: true }  // ✅ correct way
 );
 
+        // Set user data from response
         setUserData(result.data);
         localStorage.setItem('token', result.data.token);
         setLoader(false)
@@ -36,8 +37,8 @@ function Signup  () {
         }
       } catch (error) {
         setUserData(null)
-        toast.error(error.message)
-        
+        toast.error(error.response?.data?.message || error.message)
+        setLoader(false)
       }
         
     }

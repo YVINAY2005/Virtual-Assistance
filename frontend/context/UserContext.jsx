@@ -27,9 +27,15 @@ const UserContext = ({ children }) => {
         withCredentials: true
       });
       setUserData(result.data);
-      console.log(result.data);
+      console.log("Current user:", result.data);
     } catch (error) {
-      console.log(error);
+      // 401 is expected when user is not logged in - this is normal
+      if (error.response?.status === 401) {
+        console.log("User not authenticated - redirecting to login");
+        setUserData(null);
+      } else {
+        console.error("Error fetching current user:", error.message);
+      }
     }
   };
 
