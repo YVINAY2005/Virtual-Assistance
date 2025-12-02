@@ -29,11 +29,12 @@ const UserContext = ({ children }) => {
       setUserData(result.data);
       console.log("Current user:", result.data);
     } catch (error) {
-      // 401 is expected when user is not logged in - this is normal
+      // 401 is expected when user is not logged in - this is normal, don't log it as error
       if (error.response?.status === 401) {
-        console.log("User not authenticated - redirecting to login");
+        // User not authenticated - this is expected on first load
         setUserData(null);
-      } else {
+      } else if (error.code !== 'ERR_NETWORK') {
+        // Only log non-network errors
         console.error("Error fetching current user:", error.message);
       }
     }
@@ -42,6 +43,8 @@ const UserContext = ({ children }) => {
 
   const getGeminiResponse = async (command) => {
     try {
+      console.log("Sending request to:", `${serverUrl}/api/user/asktoassistance`);
+      console.log("With credentials:", true);
       const result = await axios.post(
         `${serverUrl}/api/user/asktoassistance`,
         { command },
@@ -57,6 +60,10 @@ const UserContext = ({ children }) => {
       return result.data;
     } catch (error) {
       console.error("Error in getGeminiResponse:", error);
+      if (error.response?.status === 401) {
+        console.error("Unauthorized - token may be missing or invalid");
+        console.error("Response:", error.response?.data);
+      }
       // Rethrow the error so it can be handled by the component
       throw error;
     }

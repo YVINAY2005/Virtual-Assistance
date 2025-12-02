@@ -50,13 +50,21 @@ export const login = async (req, res) => {
     console.log("Login request body:", req.body);
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      console.log("Missing email or password");
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
     const user = await User.findOne({ email });
     if (!user) {
+      console.log("User not found:", email);
       return res.status(400).json({ message: "Email does not exist" });
     }
 
+    console.log("User found:", user.email, "Comparing passwords...");
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.log("Password mismatch for user:", email);
       return res.status(400).json({ message: "Incorrect Password" });
     }
 
@@ -71,8 +79,10 @@ export const login = async (req, res) => {
       secure: isProduction, // true on production (HTTPS), false on localhost (HTTP)
     });
 
+    console.log("Login successful for user:", email);
     return res.status(200).json({ ...user.toObject(), token: Token });
   } catch (error) {
+    console.error("Login error:", error);
     return res.status(500).json({ message: `login error ${error}` });
   }
 };
