@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect } from "react";
 import axios from "axios";
 export const userDataContext = createContext();
 
-const serverUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const serverUrl = import.meta.env.VITE_BACKEND_URL || "https://virtual-assistance-backend-a2fu.onrender.com";
 
 const UserContext = ({ children }) => {
   const [userData, setUserData] = useState(null);
