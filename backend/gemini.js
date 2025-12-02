@@ -1,3 +1,4 @@
+
 import axios from "axios"
 const geminiResponse=async(prompt, assistanceName, userName)=>{
 
@@ -98,6 +99,9 @@ User input: ${prompt}`
         
     } catch (error) {
         console.error("Error in Gemini response:", error);
+        if (error.response) {
+            console.error("Gemini API response error:", error.response.status, error.response.data);
+        }
         console.error("Gemini API error:", error.message);
         return {
             type: "unknown",

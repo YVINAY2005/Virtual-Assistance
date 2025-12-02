@@ -201,28 +201,14 @@ const Home = () => {
     utterance.onerror = (event) => {
       console.error('Speech synthesis error:', event.error, 'for text:', text);
       switch (event.error) {
-        case 'not-allowed':
-          console.log('Speech synthesis requires user interaction. Please try again after clicking somewhere on the page.');
-          break;
-        case 'synthesis-failed':
-          console.log('Speech synthesis failed. This may be due to invalid voice selection or unsupported text. Retrying with default voice.');
-          // Retry with default voice
-          utterance.voice = null;
-          try {
-            window.speechSynthesis.speak(utterance);
-            return; // Exit to avoid resetting flags
-          } catch (retryError) {
-            console.error('Retry also failed:', retryError);
-          }
-          break;
-        case 'network':
-          console.log('Network error during speech synthesis.');
-          break;
         case 'interrupted':
-          console.log('Speech synthesis was interrupted.');
+          console.log('Speech was interrupted by recognition starting');
+          break;
+        case 'not-allowed':
+          console.log('Speech synthesis not allowed');
           break;
         default:
-          console.log('Unknown speech synthesis error:', event.error);
+          console.log('Speech synthesis error:', event.error);
       }
       isSpeakingRef.current = false;
       startRecognition();
@@ -520,6 +506,11 @@ const Home = () => {
         handleLogout()
         break
       }
+      case 'return': {
+        speak('Returning to the previous page')
+        window.history.back()
+        break
+      }
       case 'time': {
         const now = new Date();
         const timeString = now.toLocaleTimeString('en-US', {
@@ -547,11 +538,6 @@ const Home = () => {
         const month = now.toLocaleString('default', { month: 'long' })
         const year = now.getFullYear()
         speak(`We are currently in ${month}, ${year}`)
-        break
-      }
-       case 'return': {
-        navigate("/") // ✅ Return to homepage
-        speak("Returning to the home page")
         break
       }
       case 'shutdown_confirm': {
@@ -648,7 +634,7 @@ const Home = () => {
         const data=await getGeminiResponse(transcript)
         console.log("Received data from Gemini:", data);
     const speakableTypes = ['general', 'joke', 'quote', 'advice', 'time', 'date', 'math_calculation', 'unknown'];
-    const commandTypes = ['google_search', 'web_search', 'youtube_search', 'wikipedia_search', 'github_search', 'stackoverflow_search', 'news_search', 'get_directions', 'find_nearby_places', 'translate_text', 'define_word', 'spell_check', 'grammar_check', 'weather', 'calculator', 'calendar', 'instagram', 'facebook', 'whatsapp', 'play_music', 'linkedin', 'twitter', 'vscode', 'open_application', 'set_alarm', 'set_reminder', 'logout', 'time', 'date', 'shutdown_confirm'];
+    const commandTypes = ['google_search', 'web_search', 'youtube_search', 'wikipedia_search', 'github_search', 'stackoverflow_search', 'news_search', 'get_directions', 'find_nearby_places', 'translate_text', 'define_word', 'spell_check', 'grammar_check', 'weather', 'calculator', 'calendar', 'instagram', 'facebook', 'whatsapp', 'play_music', 'linkedin', 'twitter', 'vscode', 'open_application', 'set_alarm', 'set_reminder', 'logout', 'time', 'date', 'return', 'shutdown_confirm'];
     let responseText = "";
     if(commandTypes.includes(data.type)){
       // Remove 'response' field if present for command types

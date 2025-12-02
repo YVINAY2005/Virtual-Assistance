@@ -42,12 +42,17 @@ export const askToAssistant = async (req, res) => {
     const { command } = req.body;
     const user = await User.findById(req.userId);
     user.history.push(command);
-    user.save();
+    await user.save();
     const assistanceName = user.assistanceName;
     const userName = user.name;
+    
+    console.log("Asking Gemini with:", { command, assistanceName, userName });
     const result = await geminiResponse(command, assistanceName, userName);
+    console.log("Gemini result:", result);
+    
     if (!result || !result.type) {
-      return res.status(400).json({ message: "Invalid response format from assistant" });
+      console.error("Invalid response format:", result);
+      return res.status(400).json({ type: "unknown", response: "Invalid response format from assistant" });
     }
 
     const type = result.type;
@@ -154,6 +159,16 @@ export const askToAssistant = async (req, res) => {
           query: result.query || null,
           response: `Opening ${result.app || "application"}...`,
         });
+      case "general":
+        return res.json({
+          type: "general",
+          response: result.response || "How can I help you?",
+        });
+      case "return":
+        return res.json({
+          type: "return",
+          response: "Returning to the previous page...",
+        });
       case "shutdown": // Shutdown confirmation request
         return res.json({
           type: "shutdown_confirm",
@@ -172,7 +187,11 @@ export const askToAssistant = async (req, res) => {
         });
     }
   } catch (error) {
-    return res.status(500).json({ response: "Sorry I cannot process your request at the moment" });
+    console.error("askToAssistant error:", error);
+    return res.status(500).json({
+      type: "error",
+      response: "Sorry I cannot process your request at the moment"
+    });
   }
 };
 
