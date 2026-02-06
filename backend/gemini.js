@@ -1,15 +1,22 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from 'url';
 
-import axios from "axios"
-const geminiResponse=async(prompt, assistanceName, userName)=>{
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-    try {
-        const apiUrl=process.env.GEMINI_API_URL
-        const fullPrompt=`You are ${assistanceName}, a helpful AI assistant created by ${userName}. Your task is to analyze the user's input and respond with a JSON object containing the "type" and required fields. Do not add extra text outside the JSON.
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY.replace(/[`'"]/g, '').trim());
+
+const geminiResponse = async (prompt, assistanceName, userName) => {
+    const fullPrompt = `You are ${assistanceName}, a helpful AI assistant created by ${userName}. Your task is to analyze the user's input and respond with a JSON object containing the "type" and required fields. Do not add extra text outside the JSON.
 
 Response Format: Always return valid JSON with "type" and the specified fields for that type. No additional explanations.
 
 Available Types:
-- "general": For general conversation, questions, or anything not fitting other types. Include "response" with your reply. Example: {"type": "general", "response": "Hello! How can I help?"} Example: {"type": "general", "response": "My name is ${assistanceName} and I was created by ${userName}."} Example: {"type": "general", "response": "I was created by ${userName}."}
+- "general": For general conversation, questions, or anything not fitting other types. Include "response" with your reply. Example: {"type": "general", "response": "Hello! How can I help?"}
 - "define_word": For word definitions. Include "word" and "definition". Example: {"type": "define_word", "word": "serendipity", "definition": "The occurrence of events by chance in a happy way."}
 - "math_calculation": For math problems. Include "expression" and "result". Example: {"type": "math_calculation", "expression": "2 + 3", "result": "The sum of 2 and 3 is 5"}
 - "time": For time queries. Just return type "time". Example: {"type": "time"}
@@ -36,77 +43,62 @@ Instructions:
 - If unsure, use "general".
 - Do not include "response" for command types like "google_search" or "open_application".
 
-User input: ${prompt}`
+User input: ${prompt}`;
 
-
-        if (!apiUrl) {
-            throw new Error("GEMINI_API_URL environment variable is not set");
-        }
-
-        const result = await axios.post(apiUrl, {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": fullPrompt
-                        }
-                    ]
-                }
-            ]
-        });
-
-        if (!result.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-            throw new Error("Invalid response structure from Gemini API");
-        }
-
-        const responseText = result.data.candidates[0].content.parts[0].text;
+    try {
+        // Use gemini-flash-latest as it is the most reliable alias for this key
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        const result = await model.generateContent(fullPrompt);
+        const response = await result.response;
+        const responseText = response.text();
+        
         console.log("Raw Gemini response:", responseText);
         
-        // Improved JSON parsing with fallbacks
         let parsed;
         try {
-            // First attempt: direct JSON parse
-            parsed = JSON.parse(responseText.trim())
+            parsed = JSON.parse(responseText.trim());
         } catch (e1) {
-            console.log("Direct JSON parse failed, attempting to extract JSON from text")
-            try {
-                // Second attempt: extract JSON from text
-                const jsonMatch = responseText.match(/{[\s\S]*}/)
-                if (jsonMatch) {
-                    parsed = JSON.parse(jsonMatch[0])
-                } else {
-                    throw new Error("No JSON object found in response")
-                }
-            } catch (e2) {
-                console.log("JSON extraction failed, using fallback response")
-                parsed = {
-                    type: "unknown",
-                    response: "Sorry, I couldn't understand that command."
-                }
+            const jsonMatch = responseText.match(/{[\s\S]*}/);
+            if (jsonMatch) {
+                parsed = JSON.parse(jsonMatch[0]);
+            } else {
+                parsed = { type: "general", response: responseText };
             }
         }
         
-        // Ensure required fields exist
-        if (!parsed.type) {
-            parsed.type = "unknown"
-        }
+        if (!parsed.type) parsed.type = "unknown";
         if (!parsed.response && !["google_search", "youtube_search", "open_application"].includes(parsed.type)) {
-            parsed.response = "I understood your command but couldn't generate a proper response."
+            parsed.response = "Response generated but format was incomplete.";
         }
         
-        console.log("Parsed response:", parsed)
-        return parsed
+        return parsed;
         
     } catch (error) {
-        console.error("Error in Gemini response:", error);
-        if (error.response) {
-            console.error("Gemini API response error:", error.response.status, error.response.data);
+        console.error("Gemini SDK Error:", error.message);
+        
+        // Check for 404/429 and try fallbacks
+        if (error.message.includes("404") || error.message.includes("429")) {
+            const fallbacks = ["gemini-2.0-flash", "gemini-pro-latest", "gemini-2.5-flash"];
+            for (const fallbackModelName of fallbacks) {
+                console.log(`Attempting fallback to ${fallbackModelName}...`);
+                try {
+                    const fallbackModel = genAI.getGenerativeModel({ model: fallbackModelName });
+                    const result = await fallbackModel.generateContent(fullPrompt);
+                    const response = await result.response;
+                    const responseText = response.text();
+                    const jsonMatch = responseText.match(/{[\s\S]*}/);
+                    return jsonMatch ? JSON.parse(jsonMatch[0]) : { type: "general", response: responseText };
+                } catch (fallbackError) {
+                    console.error(`Fallback to ${fallbackModelName} failed:`, fallbackError.message);
+                }
+            }
         }
-        console.error("Gemini API error:", error.message);
+
         return {
             type: "unknown",
-            response: "I apologize, but I encountered an error while processing your request. Please try again."
+            response: "I apologize, but I encountered an error while processing your request. Please check your API key and connection."
         };
     }
 }
-export default geminiResponse
+
+export default geminiResponse;
