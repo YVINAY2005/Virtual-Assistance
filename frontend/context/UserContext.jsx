@@ -22,17 +22,27 @@ const UserContext = ({ children }) => {
   };
 
   const handleCurrentUser = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setUserData(null);
+      return;
+    }
+
     try {
       const result = await axios.get(`${serverUrl}/api/user/current`, {
-        withCredentials: true
+        withCredentials: true,
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
       setUserData(result.data);
       console.log("Current user:", result.data);
     } catch (error) {
-      // 401 is expected when user is not logged in - this is normal, don't log it as error
+      // 401 is expected when user is not logged in or token expired
       if (error.response?.status === 401) {
-        // User not authenticated - this is expected on first load
+        // User not authenticated or token expired - clear everything
         setUserData(null);
+        localStorage.removeItem('token');
       } else if (error.code !== 'ERR_NETWORK') {
         // Only log non-network errors
         console.error("Error fetching current user:", error.message);
@@ -42,14 +52,17 @@ const UserContext = ({ children }) => {
 
 
   const getGeminiResponse = async (command) => {
+    const token = localStorage.getItem('token');
     try {
       console.log("Sending request to:", `${serverUrl}/api/user/asktoassistance`);
-      console.log("With credentials:", true);
       const result = await axios.post(
         `${serverUrl}/api/user/asktoassistance`,
         { command },
         {
-          withCredentials: true
+          withCredentials: true,
+          headers: {
+            Authorization: token ? `Bearer ${token}` : ""
+          }
         }
       );
 

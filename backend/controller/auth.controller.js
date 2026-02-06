@@ -5,7 +5,13 @@ import bcrypt from "bcrypt";
 //* Signup
 export const signUp = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    let { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    email = email.toLowerCase().trim();
 
     const ExistEmail = await User.findOne({ email });
     if (ExistEmail) {
@@ -48,24 +54,26 @@ export const signUp = async (req, res) => {
 export const login = async (req, res) => {
   try {
     console.log("Login request body:", req.body);
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
     if (!email || !password) {
       console.log("Missing email or password");
       return res.status(400).json({ message: "Email and password are required" });
     }
 
+    email = email.toLowerCase().trim();
+
     const user = await User.findOne({ email });
     if (!user) {
       console.log("User not found:", email);
-      return res.status(400).json({ message: "Email does not exist" });
+      return res.status(400).json({ message: "Invalid email or password" });
     }
 
     console.log("User found:", user.email, "Comparing passwords...");
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       console.log("Password mismatch for user:", email);
-      return res.status(400).json({ message: "Incorrect Password" });
+      return res.status(400).json({ message: "Invalid email or password" });
     }
 
     const Token = await genToken(user._id);

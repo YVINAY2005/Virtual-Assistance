@@ -126,9 +126,16 @@ const Home = () => {
 
   const handleLogout = async () => {
     setLoader(true)
+    const token = localStorage.getItem('token');
     try {
-      await axios.get(`${serverUrl}/api/auth/logout`, { withCredentials: true })
+      await axios.get(`${serverUrl}/api/auth/logout`, { 
+        withCredentials: true,
+        headers: {
+          Authorization: token ? `Bearer ${token}` : ""
+        }
+      })
       setUserData(null)
+      localStorage.removeItem('token')
       navigate("/signin")
     } catch (error) {
       console.log(error)
@@ -771,8 +778,14 @@ const Home = () => {
               <button
                 onClick={async () => {
                   setShowShutdownModal(false);
+                  const token = localStorage.getItem('token');
                   try {
-                    await axios.post(`${serverUrl}/api/user/shutdown-confirm`, {}, { withCredentials: true });
+                    await axios.post(`${serverUrl}/api/user/shutdown-confirm`, {}, { 
+                      withCredentials: true,
+                      headers: {
+                        Authorization: token ? `Bearer ${token}` : ""
+                      }
+                    });
                     speak("Shutting down your computer");
                   } catch (error) {
                     console.error("Shutdown error:", error);
