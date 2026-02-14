@@ -46,7 +46,7 @@ Instructions:
 User input: ${prompt}`;
 
     try {
-        // Use gemini-flash-latest as it is the most reliable alias for this key
+        // Use gemini-flash-latest as it is the most reliable model for this key
         const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
         const result = await model.generateContent(fullPrompt);
         const response = await result.response;
@@ -78,7 +78,7 @@ User input: ${prompt}`;
         
         // Check for 404/429 and try fallbacks
         if (error.message.includes("404") || error.message.includes("429")) {
-            const fallbacks = ["gemini-2.0-flash", "gemini-pro-latest", "gemini-2.5-flash"];
+            const fallbacks = ["gemini-flash-latest", "gemini-2.0-flash", "gemini-pro-latest"];
             for (const fallbackModelName of fallbacks) {
                 console.log(`Attempting fallback to ${fallbackModelName}...`);
                 try {
