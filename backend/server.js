@@ -52,9 +52,9 @@ app.get("/api/gemini", async (req, res) => {
 app.get("/", (req, res) => {
     res.send("api is working");
 });
-app.listen(port,()=>{
-    connectDb()
-    console.log(`Server is running on port ${process.env.PORT}`)
+app.listen(port, () => {
+    connectDb();
+    console.log(`Server is running on port ${port}`);
 });
 
 

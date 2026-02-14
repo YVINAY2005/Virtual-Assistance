@@ -1,14 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+dotenv.config();
 
-dotenv.config({ path: path.join(__dirname, '.env') });
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY.replace(/[`'"]/g, '').trim());
+const apiKey = (process.env.GEMINI_API_KEY || "").replace(/[`'\x22]/g, '').trim();
+if (!apiKey) {
+    console.error("CRITICAL: GEMINI_API_KEY is not defined in environment variables!");
+}
+const genAI = new GoogleGenerativeAI(apiKey);
 
 const geminiResponse = async (prompt, assistanceName, userName) => {
     const fullPrompt = `You are ${assistanceName}, a helpful AI assistant created by ${userName}. Your task is to analyze the user's input and respond with a JSON object containing the "type" and required fields. Do not add extra text outside the JSON.
